@@ -1,0 +1,252 @@
+# Build directories
+build/
+cmake-build-*/
+out/
+
+# Compiled Object files
+*.slo
+*.lo
+*.o
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+*.a
+*.lib
+
+# Executables
+*.exe
+*.out
+*.app
+
+# CMake
+CMakeCache.txt
+CMakeFiles
+CMakeScripts
+Testing
+Makefile
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+_deps
+
+# Visual Studio
+.vs/
+*.vcxproj
+*.vcxproj.filters
+*.vcxproj.user
+*.sln
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Visual Studio Code
+.vscode/
+*.code-workspace
+
+# Xcode
+*.xcodeproj
+*.xcworkspace
+xcuserdata/
+*.xccheckout
+*.moved-aside
+DerivedData
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+
+# Android Studio
+.gradle/
+.idea/
+*.iml
+local.properties
+proguard/
+
+# Qt Creator
+*.pro.user
+*.pro.user.*
+*.qbs.user
+*.qbs.user.*
+*.moc
+*.moc.cpp
+*.qm
+*.prl
+*.qrc.cpp
+*.qrc.deps
+moc_*.cpp
+qrc_*.cpp
+ui_*.h
+Makefile*
+*build-*
+
+# CLion
+.idea/
+cmake-build-*/
+
+# Code::Blocks
+*.depend
+*.layout
+*.cbp
+
+# Conan
+conanfile.txt
+conanfile.py
+conandata.yml
+conanbuildinfo.cmake
+conanbuildinfo.txt
+conanbuildinfo.py
+conaninfo.txt
+graph_info.json
+
+# vcpkg
+vcpkg_installed/
+.vcpkg-root
+
+# Package managers
+packages/
+*.nuget.props
+*.nuget.targets
+
+# Test results
+test_results.xml
+*.gcov
+*.gcda
+*.gcno
+
+# Coverage reports
+coverage/
+*.info
+
+# Profiling data
+*.prof
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# ID document samples - NEVER commit real identification documents
+test_images/
+training_data/
+*.jpg
+*.jpeg
+*.png
+*.tiff
+*.bmp
+*.gif
+*.webp
+*.svg
+
+# Model files - Large ML models should not be in git
+*.tflite
+*.onnx
+*.pb
+*.h5
+*.keras
+*.pt
+*.pth
+*.caffemodel
+*.prototxt
+*.mlmodel
+
+# Configuration files with sensitive data
+config.ini
+.env
+.env.local
+.env.production
+secrets.json
+credentials.json
+
+# Documentation build
+docs/build/
+docs/_build/
+site/
+
+# Python (if using Python tooling)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Node.js (if using Node.js tooling)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.yarn-integrity
+
+# Rust (if using Rust components)
+target/
+Cargo.lock
+**/*.rs.bk
+
+# Go (if using Go components)
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.work
+
+# Local development files
+.local/
+.cache/
+.tmp/
+
+# IDE specific files
+*.sublime-project
+*.sublime-workspace
+.idea/
+.vscode/settings.json
+.vscode/launch.json
+.vscode/extensions.json
+
+# Backup files
+*.backup
+*.bak
+*.old
+*~
+*.jpg
+detect_id_card
+debug.log

@@ -1,116 +1,128 @@
+// detect_id_card.cpp
+#include "detect_id_card.h"
 #include <opencv2/opencv.hpp>
+#include <opencv2/objdetect.hpp>
 #include <iostream>
-#include <vector>
+#include <fstream>
+#include <algorithm>
 
 using namespace cv;
 
-// Helper to sort contours by area
-bool sortByArea(const RotatedRect& a, const RotatedRect& b) {
-    return a.size.area() > b.size.area();
-}
+static std::ofstream debugLog("debug.log");
 
-// Detect portrait-like rectangle inside a cropped card
-bool detectPortraitRegion(const Mat& card) {
-    Mat gray, edges;
-    cvtColor(card, gray, COLOR_BGR2GRAY);
-    GaussianBlur(gray, gray, Size(5, 5), 0);
-    Canny(gray, edges, 50, 150);
+bool detectPortrait(const Mat &cardROI, const std::string &faceCascadePath) {
+    CascadeClassifier face_cascade;
+    if (!face_cascade.load(faceCascadePath)) {
+        debugLog << "Error loading Haar Cascade face detector from: " << faceCascadePath << std::endl;
+        return false;
+    }
 
-    std::vector<std::vector<Point>> contours;
-    findContours(edges, contours, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
+    std::vector<Rect> faces;
+    Mat gray;
+    cvtColor(cardROI, gray, COLOR_BGR2GRAY);
+    equalizeHist(gray, gray);
 
-    for (const auto& contour : contours) {
-        RotatedRect rect = minAreaRect(contour);
-        float w = rect.size.width;
-        float h = rect.size.height;
-        if (w < h) std::swap(w, h);
-        float aspectRatio = h / w;  // Portrait ratio
-        float area = w * h;
+    face_cascade.detectMultiScale(gray, faces, 1.1, 4, 0, Size(cardROI.cols * 0.2, cardROI.rows * 0.2));
 
-        if (aspectRatio > 0.6 && aspectRatio < 0.9 && area > (card.cols * card.rows * 0.05)) {
-            Point2f center = rect.center;
-            // Ensure it's on the left third of the card
-            if (center.x < card.cols * 0.4) {
-                std::cout << "Detected possible portrait region (aspect ratio: " << aspectRatio << ")" << std::endl;
-                return true;
-            }
+    for (const auto &face : faces) {
+        rectangle(cardROI, face, Scalar(255, 0, 0), 2);
+        if (face.x < cardROI.cols * 0.4) {
+            debugLog << "Face detected in portrait region." << std::endl;
+            return true;
         }
     }
+
+    imwrite("portrait_detection_debug.jpg", cardROI);
 
     return false;
 }
 
-int main(int argc, char** argv) {
-    if (argc != 2) {
-        std::cerr << "Usage: ./detect_id_card_with_portrait <image_path>" << std::endl;
-        return -1;
-    }
-
-    std::string image_path = argv[1];
-    Mat image = imread(image_path);
-    if (image.empty()) {
-        std::cerr << "Could not read the image: " << image_path << std::endl;
-        return -1;
-    }
-
-    imwrite("original_image.jpg", image);
-
-    Mat gray, edges;
-    cvtColor(image, gray, COLOR_BGR2GRAY);
-    GaussianBlur(gray, gray, Size(5, 5), 0);
+RotatedRect findCardContour(const Mat &image, const Mat &gray) {
+    Mat edges;
     Canny(gray, edges, 50, 150);
+
+    Mat kernel = getStructuringElement(MORPH_RECT, Size(5, 5));
+    morphologyEx(edges, edges, MORPH_CLOSE, kernel);
+
+    imwrite("canny_edges.jpg", edges);
 
     std::vector<std::vector<Point>> contours;
     findContours(edges, contours, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
 
-    const double imageArea = image.cols * image.rows;
-    std::vector<RotatedRect> cardCandidates;
+    debugLog << "Total contours found: " << contours.size() << std::endl;
 
-    for (const auto& contour : contours) {
-        RotatedRect rect = minAreaRect(contour);
-        float w = rect.size.width;
-        float h = rect.size.height;
+    if (contours.empty()) {
+        debugLog << "No contours found." << std::endl;
+        return RotatedRect();
+    }
+
+    double imageArea = image.cols * image.rows;
+    Mat debugImage = image.clone();
+
+    RotatedRect bestRect;
+    double bestRectArea = 0;
+
+    for (size_t i = 0; i < contours.size(); ++i) {
+        std::vector<Point> approx;
+        approxPolyDP(contours[i], approx, arcLength(contours[i], true) * 0.02, true);
+
+        drawContours(debugImage, std::vector<std::vector<Point>>{approx}, -1, Scalar(0, 255, 0), 2);
+
+        RotatedRect rect = minAreaRect(approx);
+        double w = rect.size.width;
+        double h = rect.size.height;
         if (w < h) std::swap(w, h);
-        float aspectRatio = w / h;
-        float area = w * h;
 
-        if (aspectRatio > 1.4 && aspectRatio < 1.65 &&
-            area > imageArea * 0.15 && area < imageArea * 0.95) {
-            cardCandidates.push_back(rect);
+        double aspectRatio = w / h;
+        double rectArea = w * h;
+
+        debugLog << "Contour #" << i << ": area=" << rectArea
+                 << ", aspectRatio=" << aspectRatio
+                 << ", vertices=" << approx.size()
+                 << ", imageArea=" << imageArea << std::endl;
+
+        // Loosened thresholds:
+        if (aspectRatio > 1.2 && aspectRatio < 1.8 && rectArea > imageArea * 0.1) {
+            debugLog << "--> Candidate contour accepted." << std::endl;
+            if (rectArea > bestRectArea) {
+                bestRect = rect;
+                bestRectArea = rectArea;
+            }
+        } else {
+            debugLog << "--> Rejected due to aspect ratio/area." << std::endl;
         }
     }
 
-    if (cardCandidates.empty()) {
-        std::cout << "No card-shaped rectangles found." << std::endl;
-        return 0;
+    imwrite("detected_rectangles.jpg", debugImage);
+
+    if (bestRectArea == 0) {
+        debugLog << "No rectangle with correct aspect ratio and area found." << std::endl;
+        debugLog << "Image size: " << image.cols << " x " << image.rows << std::endl;
+
+        std::vector<std::pair<double, RotatedRect>> areas;
+        for (const auto &contour : contours) {
+            RotatedRect rect = minAreaRect(contour);
+            double area = rect.size.width * rect.size.height;
+            areas.emplace_back(area, rect);
+        }
+        std::sort(areas.begin(), areas.end(), [](const auto &a, const auto &b) {
+            return a.first > b.first;
+        });
+        for (size_t i = 0; i < std::min(size_t(5), areas.size()); ++i) {
+            double w = areas[i].second.size.width;
+            double h = areas[i].second.size.height;
+            if (w < h) std::swap(w, h);
+            double ratio = w / h;
+            debugLog << "Top contour " << i << ": area=" << areas[i].first
+                     << ", size=(" << w << "x" << h << ")"
+                     << ", aspectRatio=" << ratio << std::endl;
+        }
+
+        return RotatedRect();
     }
 
-    std::sort(cardCandidates.begin(), cardCandidates.end(), sortByArea);
-    RotatedRect cardRect = cardCandidates.front();
+    debugLog << "Selected rect area: " << bestRectArea << " | Aspect Ratio: "
+             << bestRect.size.width / bestRect.size.height << std::endl;
 
-    // Warp the card to a flat rectangle
-    Point2f srcPoints[4];
-    cardRect.points(srcPoints);
-    Point2f dstPoints[4] = {
-        Point2f(0, 0),
-        Point2f(cardRect.size.width, 0),
-        Point2f(cardRect.size.width, cardRect.size.height),
-        Point2f(0, cardRect.size.height)
-    };
-
-    Mat warpMatrix = getPerspectiveTransform(srcPoints, dstPoints);
-    Mat warpedCard;
-    warpPerspective(image, warpedCard, warpMatrix, cardRect.size);
-
-    imwrite("detected_card.jpg", warpedCard);
-
-    // Detect portrait region in warped card
-    if (detectPortraitRegion(warpedCard)) {
-        imwrite("cropped_card.jpg", warpedCard);
-        std::cout << "✅ ID-1 card with portrait region detected." << std::endl;
-    } else {
-        std::cout << "⚠️ No portrait region found. Skipping save." << std::endl;
-    }
-
-    return 0;
+    return bestRect;
 }
