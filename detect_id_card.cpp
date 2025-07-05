@@ -39,10 +39,16 @@ bool detectPortrait(const Mat &cardROI, const std::string &faceCascadePath) {
 
 RotatedRect findCardContour(const Mat &image, const Mat &gray) {
     Mat edges;
-    Canny(gray, edges, 50, 150);
+    // Stronger edge detection for better card boundary detection
+    Canny(gray, edges, 100, 200, 3);
 
-    Mat kernel = getStructuringElement(MORPH_RECT, Size(5, 5));
+    // Larger morphological operations to better connect card edges
+    Mat kernel = getStructuringElement(MORPH_RECT, Size(3, 3));
     morphologyEx(edges, edges, MORPH_CLOSE, kernel);
+    
+    // Additional dilation to strengthen edges
+    Mat kernel2 = getStructuringElement(MORPH_RECT, Size(2, 2));
+    dilate(edges, edges, kernel2);
 
     imwrite("canny_edges.jpg", edges);
 
@@ -59,9 +65,9 @@ RotatedRect findCardContour(const Mat &image, const Mat &gray) {
     double imageArea = image.cols * image.rows;
     Mat debugImage = image.clone();
 
-    RotatedRect bestRect;
-    double bestRectArea = 0;
-
+    // Sort contours by area to find the second largest
+    std::vector<std::pair<double, RotatedRect>> contoursByArea;
+    
     for (size_t i = 0; i < contours.size(); ++i) {
         std::vector<Point> approx;
         approxPolyDP(contours[i], approx, arcLength(contours[i], true) * 0.02, true);
@@ -69,28 +75,59 @@ RotatedRect findCardContour(const Mat &image, const Mat &gray) {
         drawContours(debugImage, std::vector<std::vector<Point>>{approx}, -1, Scalar(0, 255, 0), 2);
 
         RotatedRect rect = minAreaRect(approx);
-        double w = rect.size.width;
-        double h = rect.size.height;
-        if (w < h) std::swap(w, h);
-
-        double aspectRatio = w / h;
-        double rectArea = w * h;
+        double rectArea = rect.size.width * rect.size.height;
 
         debugLog << "Contour #" << i << ": area=" << rectArea
-                 << ", aspectRatio=" << aspectRatio
-                 << ", vertices=" << approx.size()
-                 << ", imageArea=" << imageArea << std::endl;
+                 << ", vertices=" << approx.size() << std::endl;
 
-        // Loosened thresholds:
-        if (aspectRatio > 1.2 && aspectRatio < 1.8 && rectArea > imageArea * 0.1) {
-            debugLog << "--> Candidate contour accepted." << std::endl;
-            if (rectArea > bestRectArea) {
-                bestRect = rect;
-                bestRectArea = rectArea;
-            }
-        } else {
-            debugLog << "--> Rejected due to aspect ratio/area." << std::endl;
+        // Only consider contours with reasonable vertex count for rectangles
+        if (approx.size() >= 4 && approx.size() <= 15) {
+            contoursByArea.emplace_back(rectArea, rect);
         }
+    }
+    
+    // Sort by area (largest first)
+    std::sort(contoursByArea.begin(), contoursByArea.end(), 
+              [](const auto &a, const auto &b) { return a.first > b.first; });
+
+    debugLog << "Found " << contoursByArea.size() << " rectangular contours" << std::endl;
+    for (size_t i = 0; i < std::min(size_t(5), contoursByArea.size()); ++i) {
+        double w = contoursByArea[i].second.size.width;
+        double h = contoursByArea[i].second.size.height;
+        if (w < h) std::swap(w, h);
+        double aspectRatio = w / h;
+        debugLog << "Rank " << i << ": area=" << contoursByArea[i].first
+                 << ", aspectRatio=" << aspectRatio << std::endl;
+    }
+
+    RotatedRect bestRect;
+    double bestRectArea = 0;
+
+    // Find the best contour: largest one with reasonable aspect ratio for an ID card
+    for (size_t i = 0; i < contoursByArea.size() && i < 5; ++i) {
+        double w = contoursByArea[i].second.size.width;
+        double h = contoursByArea[i].second.size.height;
+        if (w < h) std::swap(w, h);
+        double aspectRatio = w / h;
+        
+        // ID cards typically have aspect ratio between 1.3 and 1.8
+        if (aspectRatio >= 1.3 && aspectRatio <= 1.8) {
+            bestRect = contoursByArea[i].second;
+            bestRectArea = contoursByArea[i].first;
+            debugLog << "Selected rank " << i << " contour with good aspect ratio" << std::endl;
+            break;
+        }
+    }
+    
+    // Fallback: if no good aspect ratio found, use the second largest
+    if (bestRectArea == 0 && contoursByArea.size() >= 2) {
+        bestRect = contoursByArea[1].second;
+        bestRectArea = contoursByArea[1].first;
+        debugLog << "Fallback: selected second largest contour" << std::endl;
+    } else if (bestRectArea == 0 && contoursByArea.size() == 1) {
+        bestRect = contoursByArea[0].second;
+        bestRectArea = contoursByArea[0].first;
+        debugLog << "Fallback: only one contour found, using it" << std::endl;
     }
 
     imwrite("detected_rectangles.jpg", debugImage);
@@ -121,8 +158,11 @@ RotatedRect findCardContour(const Mat &image, const Mat &gray) {
         return RotatedRect();
     }
 
+    double finalW = bestRect.size.width;
+    double finalH = bestRect.size.height;
+    if (finalW < finalH) std::swap(finalW, finalH);
     debugLog << "Selected rect area: " << bestRectArea << " | Aspect Ratio: "
-             << bestRect.size.width / bestRect.size.height << std::endl;
+             << finalW / finalH << std::endl;
 
     return bestRect;
 }
