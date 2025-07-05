@@ -38,22 +38,73 @@ bool detectPortrait(const Mat &cardROI, const std::string &faceCascadePath) {
 }
 
 RotatedRect findCardContour(const Mat &image, const Mat &gray) {
+    // Color-based detection: use k-means clustering to separate distinct color regions
+    Mat colorMask;
+    
+    // Reshape image to 1D array of pixels for k-means
+    Mat data;
+    image.reshape(1, image.rows * image.cols).convertTo(data, CV_32F);
+    
+    // K-means clustering to find dominant colors (background vs card)
+    int k = 3; // Try 3 clusters to separate background, card, and any other elements
+    Mat labels, centers;
+    kmeans(data, k, labels, TermCriteria(TermCriteria::EPS + TermCriteria::COUNT, 20, 1.0),
+           3, KMEANS_PP_CENTERS, centers);
+    
+    // Reshape labels back to image dimensions
+    labels = labels.reshape(1, image.rows);
+    
+    // Find the cluster with the largest area (likely background)
+    std::vector<int> clusterCounts(k, 0);
+    for (int i = 0; i < labels.rows; ++i) {
+        for (int j = 0; j < labels.cols; ++j) {
+            clusterCounts[labels.at<int>(i, j)]++;
+        }
+    }
+    
+    // Find background cluster (largest) and card cluster (second largest or most central)
+    int backgroundCluster = std::max_element(clusterCounts.begin(), clusterCounts.end()) - clusterCounts.begin();
+    
+    // Create mask excluding the background cluster
+    colorMask = Mat::zeros(image.size(), CV_8UC1);
+    for (int i = 0; i < labels.rows; ++i) {
+        for (int j = 0; j < labels.cols; ++j) {
+            if (labels.at<int>(i, j) != backgroundCluster) {
+                colorMask.at<uchar>(i, j) = 255;
+            }
+        }
+    }
+    
+    // Clean up the mask
+    Mat kernel = getStructuringElement(MORPH_RECT, Size(5, 5));
+    morphologyEx(colorMask, colorMask, MORPH_CLOSE, kernel);
+    morphologyEx(colorMask, colorMask, MORPH_OPEN, kernel);
+    
+    imwrite("color_mask.jpg", colorMask);
+    
+    // Edge detection on the original image
     Mat edges;
     // Stronger edge detection for better card boundary detection
     Canny(gray, edges, 100, 200, 3);
 
     // Larger morphological operations to better connect card edges
-    Mat kernel = getStructuringElement(MORPH_RECT, Size(3, 3));
-    morphologyEx(edges, edges, MORPH_CLOSE, kernel);
+    Mat kernel2 = getStructuringElement(MORPH_RECT, Size(3, 3));
+    morphologyEx(edges, edges, MORPH_CLOSE, kernel2);
     
     // Additional dilation to strengthen edges
-    Mat kernel2 = getStructuringElement(MORPH_RECT, Size(2, 2));
-    dilate(edges, edges, kernel2);
+    Mat kernel3 = getStructuringElement(MORPH_RECT, Size(2, 2));
+    dilate(edges, edges, kernel3);
 
+    // Combine color mask with edge detection for better contour detection
+    Mat combinedMask;
+    bitwise_and(edges, colorMask, combinedMask);
+    
     imwrite("canny_edges.jpg", edges);
+    imwrite("combined_mask.jpg", combinedMask);
 
     std::vector<std::vector<Point>> contours;
-    findContours(edges, contours, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
+    // Use combined mask for better contour detection
+    findContours(combinedMask, contours, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
 
     debugLog << "Total contours found: " << contours.size() << std::endl;
 
