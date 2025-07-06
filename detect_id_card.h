@@ -5,8 +5,10 @@
 #include <opencv2/opencv.hpp>
 #include <string>
 
-cv::RotatedRect findCardContour(const cv::Mat &image, const cv::Mat &gray);
-bool detectPortrait(const cv::Mat &cardROI, const std::string &faceCascadePath);
+#include <ostream>
+
+cv::RotatedRect findCardContour(const cv::Mat &image, const cv::Mat &gray, std::ostream& debugStream, bool debugMode);
+bool detectPortrait(const cv::Mat &cardROI, const std::string &faceCascadePath, cv::Mat& portraitROI, std::ostream& debugStream, bool debugMode);
 
 #endif // DETECT_ID_CARD_H
 
