@@ -38,73 +38,18 @@ bool detectPortrait(const Mat &cardROI, const std::string &faceCascadePath) {
 }
 
 RotatedRect findCardContour(const Mat &image, const Mat &gray) {
-    // Color-based detection: use k-means clustering to separate distinct color regions
-    Mat colorMask;
-    
-    // Reshape image to 1D array of pixels for k-means
-    Mat data;
-    image.reshape(1, image.rows * image.cols).convertTo(data, CV_32F);
-    
-    // K-means clustering to find dominant colors (background vs card)
-    int k = 3; // Try 3 clusters to separate background, card, and any other elements
-    Mat labels, centers;
-    kmeans(data, k, labels, TermCriteria(TermCriteria::EPS + TermCriteria::COUNT, 20, 1.0),
-           3, KMEANS_PP_CENTERS, centers);
-    
-    // Reshape labels back to image dimensions
-    labels = labels.reshape(1, image.rows);
-    
-    // Find the cluster with the largest area (likely background)
-    std::vector<int> clusterCounts(k, 0);
-    for (int i = 0; i < labels.rows; ++i) {
-        for (int j = 0; j < labels.cols; ++j) {
-            clusterCounts[labels.at<int>(i, j)]++;
-        }
-    }
-    
-    // Find background cluster (largest) and card cluster (second largest or most central)
-    int backgroundCluster = std::max_element(clusterCounts.begin(), clusterCounts.end()) - clusterCounts.begin();
-    
-    // Create mask excluding the background cluster
-    colorMask = Mat::zeros(image.size(), CV_8UC1);
-    for (int i = 0; i < labels.rows; ++i) {
-        for (int j = 0; j < labels.cols; ++j) {
-            if (labels.at<int>(i, j) != backgroundCluster) {
-                colorMask.at<uchar>(i, j) = 255;
-            }
-        }
-    }
-    
-    // Clean up the mask
-    Mat kernel = getStructuringElement(MORPH_RECT, Size(5, 5));
-    morphologyEx(colorMask, colorMask, MORPH_CLOSE, kernel);
-    morphologyEx(colorMask, colorMask, MORPH_OPEN, kernel);
-    
-    imwrite("color_mask.jpg", colorMask);
-    
     // Edge detection on the original image
     Mat edges;
-    // Stronger edge detection for better card boundary detection
-    Canny(gray, edges, 100, 200, 3);
+    Canny(gray, edges, 50, 150, 3);
 
-    // Larger morphological operations to better connect card edges
-    Mat kernel2 = getStructuringElement(MORPH_RECT, Size(3, 3));
-    morphologyEx(edges, edges, MORPH_CLOSE, kernel2);
-    
-    // Additional dilation to strengthen edges
-    Mat kernel3 = getStructuringElement(MORPH_RECT, Size(2, 2));
-    dilate(edges, edges, kernel3);
+    // Morphological operations to connect edges
+    Mat kernel = getStructuringElement(MORPH_RECT, Size(5, 5));
+    morphologyEx(edges, edges, MORPH_CLOSE, kernel);
 
-    // Combine color mask with edge detection for better contour detection
-    Mat combinedMask;
-    bitwise_and(edges, colorMask, combinedMask);
-    
     imwrite("canny_edges.jpg", edges);
-    imwrite("combined_mask.jpg", combinedMask);
 
     std::vector<std::vector<Point>> contours;
-    // Use combined mask for better contour detection
-    findContours(combinedMask, contours, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
+    findContours(edges, contours, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
 
     debugLog << "Total contours found: " << contours.size() << std::endl;
 
@@ -113,7 +58,6 @@ RotatedRect findCardContour(const Mat &image, const Mat &gray) {
         return RotatedRect();
     }
 
-    double imageArea = image.cols * image.rows;
     Mat debugImage = image.clone();
 
     // Sort contours by area to find the second largest
@@ -161,8 +105,8 @@ RotatedRect findCardContour(const Mat &image, const Mat &gray) {
         if (w < h) std::swap(w, h);
         double aspectRatio = w / h;
         
-        // ID cards typically have aspect ratio between 1.3 and 1.8
-        if (aspectRatio >= 1.3 && aspectRatio <= 1.8) {
+        // ISO/IEC 7810 ID-1 aspect ratio is ~1.586. Allow for some perspective distortion.
+        if (aspectRatio >= 1.25 && aspectRatio <= 1.90) {
             bestRect = contoursByArea[i].second;
             bestRectArea = contoursByArea[i].first;
             debugLog << "Selected rank " << i << " contour with good aspect ratio" << std::endl;
@@ -170,15 +114,11 @@ RotatedRect findCardContour(const Mat &image, const Mat &gray) {
         }
     }
     
-    // Fallback: if no good aspect ratio found, use the second largest
-    if (bestRectArea == 0 && contoursByArea.size() >= 2) {
-        bestRect = contoursByArea[1].second;
-        bestRectArea = contoursByArea[1].first;
-        debugLog << "Fallback: selected second largest contour" << std::endl;
-    } else if (bestRectArea == 0 && contoursByArea.size() == 1) {
+    // Fallback: if no good aspect ratio found, use the largest contour
+    if (bestRectArea == 0 && !contoursByArea.empty()) {
         bestRect = contoursByArea[0].second;
         bestRectArea = contoursByArea[0].first;
-        debugLog << "Fallback: only one contour found, using it" << std::endl;
+        debugLog << "Fallback: selected largest contour" << std::endl;
     }
 
     imwrite("detected_rectangles.jpg", debugImage);
