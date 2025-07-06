@@ -250,3 +250,6 @@ go.work
 *.jpg
 detect_id_card
 debug.log
+
+GEMINI.md
+CLAUDE.md
