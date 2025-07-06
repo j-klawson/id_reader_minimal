@@ -75,8 +75,10 @@ RotatedRect findCardContour(const Mat &image, const Mat &gray) {
         debugLog << "Contour #" << i << ": area=" << rectArea
                  << ", vertices=" << approx.size() << std::endl;
 
-        // Only consider contours with reasonable vertex count for rectangles
-        if (approx.size() >= 4 && approx.size() <= 15) {
+        // Only consider contours with reasonable vertex count for rectangles and plausible area
+        double imageArea = image.cols * image.rows;
+        if (approx.size() >= 4 && approx.size() <= 15 && 
+            rectArea > imageArea * 0.1 && rectArea < imageArea * 0.8) {
             contoursByArea.emplace_back(rectArea, rect);
         }
     }

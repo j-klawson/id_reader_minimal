@@ -22,6 +22,13 @@ int main(int argc, char **argv) {
         return -1;
     }
 
+    // Resize image for consistent processing and noise reduction
+    double max_width = 800.0;
+    if (image.cols > max_width) {
+        double scale = max_width / image.cols;
+        resize(image, image, Size(max_width, image.rows * scale));
+    }
+
     imwrite("original_image.jpg", image);
 
     Mat gray;
@@ -32,7 +39,7 @@ int main(int argc, char **argv) {
 
     if (card.size.area() <= 0) {
         std::cout << "No card-like rectangles found." << std::endl;
-        std::cout << "Original image size: " << image.cols << " x " << image.rows << std::endl;
+        std::cout << "Processed image size: " << image.cols << " x " << image.rows << std::endl;
         return 0;
     }
 
