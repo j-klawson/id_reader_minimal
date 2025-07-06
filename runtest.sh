@@ -2,4 +2,4 @@
 
 make clean
 make
-./detect_id_card ~/Downloads/dl_front.jpg
+./detect_id_card ./id_samples/ontario_drivers_license_front.jpg
