@@ -18,8 +18,12 @@ A minimal C++ application that detects and extracts ID cards from images using O
 ## Build & Run
 
 ```bash
-make
-./detect_id_card <image_path> [face_cascade_path]
+mkdir -p build
+cd build
+cmake ..
+cmake --build .
+cd ..
+./build/detect_id_card <image_path> [face_cascade_path]
 ```
 
 Or use the test script:

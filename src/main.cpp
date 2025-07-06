@@ -18,6 +18,7 @@ void printUsage() {
     std::cout << "  --debug               Enable debug output, including intermediate image files and debug.log." << std::endl;
     std::cout << "  --face-cascade <path> Path to the Haar Cascade XML file for face detection." << std::endl;
     std::cout << "                        (default: ./assets/haarcascade_frontalface_default.xml)" << std::endl;
+    std::cout << "  --output-prefix <path>  Prefix for output debug images (e.g., 'test_')." << std::endl;
     std::cout << std::endl;
 }
 
@@ -25,6 +26,7 @@ int main(int argc, char **argv) {
     std::string imagePath;
     std::string faceCascadePath = "./assets/haarcascade_frontalface_default.xml";
     bool debugMode = false;
+    std::string outputPrefix;
 
     // Parse command-line arguments
     for (int i = 1; i < argc; ++i) {
@@ -39,6 +41,14 @@ int main(int argc, char **argv) {
                 faceCascadePath = argv[++i];
             } else {
                 std::cerr << "Error: --face-cascade requires a path." << std::endl;
+                printUsage();
+                return -1;
+            }
+        } else if (arg == "--output-prefix") {
+            if (i + 1 < argc) {
+                outputPrefix = argv[++i];
+            } else {
+                std::cerr << "Error: --output-prefix requires a path." << std::endl;
                 printUsage();
                 return -1;
             }
@@ -83,14 +93,14 @@ int main(int argc, char **argv) {
     }
 
     if (debugMode) {
-        imwrite("original_image.jpg", image);
+        imwrite(outputPrefix + "original_image.jpg", image);
     }
 
     Mat gray;
     cvtColor(image, gray, COLOR_BGR2GRAY);
     GaussianBlur(gray, gray, Size(9, 9), 0);
 
-    RotatedRect card = findCardContour(image, gray, *debugStream, debugMode);
+    RotatedRect card = findCardContour(image, gray, *debugStream, debugMode, outputPrefix);
 
     if (card.size.area() <= 0) {
         std::cout << "No card-like rectangles found." << std::endl;
@@ -122,13 +132,13 @@ int main(int argc, char **argv) {
     warpPerspective(image, warped, M, Size(warpedWidth, warpedHeight));
 
     if (debugMode) {
-        imwrite("detected_card.jpg", warped);
+        imwrite(outputPrefix + "detected_card.jpg", warped);
     }
 
     Mat croppedPortrait;
-    if (detectPortrait(warped, faceCascadePath, croppedPortrait, *debugStream, debugMode)) {
-        imwrite("cropped_card.jpg", warped);
-        imwrite("cropped_portrait.jpg", croppedPortrait);
+    if (detectPortrait(warped, faceCascadePath, croppedPortrait, *debugStream, debugMode, outputPrefix)) {
+        imwrite(outputPrefix + "cropped_card.jpg", warped);
+        imwrite(outputPrefix + "cropped_portrait.jpg", croppedPortrait);
         std::cout << "Card with portrait detected." << std::endl;
     } else {
         std::cout << "No portrait detected." << std::endl;

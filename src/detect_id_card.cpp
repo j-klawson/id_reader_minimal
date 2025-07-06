@@ -8,7 +8,7 @@
 
 using namespace cv;
 
-bool detectPortrait(const Mat &cardROI, const std::string &faceCascadePath, Mat& portraitROI, std::ostream& debugStream, bool debugMode) {
+bool detectPortrait(const Mat &cardROI, const std::string &faceCascadePath, Mat& portraitROI, std::ostream& debugStream, bool debugMode, const std::string& outputPrefix) {
     CascadeClassifier face_cascade;
     if (!face_cascade.load(faceCascadePath)) {
         if (debugMode) debugStream << "Error loading Haar Cascade face detector from: " << faceCascadePath << std::endl;
@@ -31,21 +31,21 @@ bool detectPortrait(const Mat &cardROI, const std::string &faceCascadePath, Mat&
         }
     }
 
-    if (debugMode) imwrite("portrait_detection_debug.jpg", cardROI);
+    if (debugMode) imwrite(outputPrefix + "portrait_detection_debug.jpg", cardROI);
 
     return false;
 }
 
-RotatedRect findCardContour(const Mat &image, const Mat &gray, std::ostream& debugStream, bool debugMode) {
+RotatedRect findCardContour(const Mat &image, const Mat &gray, std::ostream& debugStream, bool debugMode, const std::string& outputPrefix) {
     // Edge detection on the original image
     Mat edges;
-    Canny(gray, edges, 50, 150, 3);
+    Canny(gray, edges, 30, 90, 5);
 
     // Morphological operations to connect edges
     Mat kernel = getStructuringElement(MORPH_RECT, Size(5, 5));
     morphologyEx(edges, edges, MORPH_CLOSE, kernel);
 
-    if (debugMode) imwrite("canny_edges.jpg", edges);
+    if (debugMode) imwrite(outputPrefix + "canny_edges.jpg", edges);
 
     std::vector<std::vector<Point>> contours;
     findContours(edges, contours, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
@@ -76,8 +76,8 @@ RotatedRect findCardContour(const Mat &image, const Mat &gray, std::ostream& deb
 
         // Only consider contours with reasonable vertex count for rectangles and plausible area
         double imageArea = image.cols * image.rows;
-        if (approx.size() >= 4 && approx.size() <= 15 && 
-            rectArea > imageArea * 0.1 && rectArea < imageArea * 0.8) {
+        if (approx.size() >= 4 && approx.size() <= 20 && 
+            rectArea > imageArea * 0.05 && rectArea < imageArea * 0.8) {
             contoursByArea.emplace_back(rectArea, rect);
         }
     }
@@ -122,7 +122,7 @@ RotatedRect findCardContour(const Mat &image, const Mat &gray, std::ostream& deb
         if (debugMode) debugStream << "Fallback: selected largest contour" << std::endl;
     }
 
-    if (debugMode) imwrite("detected_rectangles.jpg", debugImage);
+    if (debugMode) imwrite(outputPrefix + "detected_rectangles.jpg", debugImage);
 
     if (bestRectArea == 0) {
         if (debugMode) {
