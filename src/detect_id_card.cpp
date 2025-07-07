@@ -47,7 +47,7 @@ bool detectPortrait(const Mat &cardROI, Mat& portraitROI, std::ostream& debugStr
 RotatedRect findCardContour(const Mat &image, const Mat &gray, std::ostream& debugStream, bool debugMode) {
     // Edge detection on the original image
     Mat edges;
-    Canny(gray, edges, 30, 90, 5);
+    Canny(gray, edges, 50, 150, 3);
 
     // Morphological operations to connect edges
     Mat kernel = getStructuringElement(MORPH_RECT, Size(5, 5));
@@ -84,8 +84,8 @@ RotatedRect findCardContour(const Mat &image, const Mat &gray, std::ostream& deb
 
         // Only consider contours with reasonable vertex count for rectangles and plausible area
         double imageArea = image.cols * image.rows;
-        if (approx.size() >= 4 && approx.size() <= 20 && 
-            rectArea > imageArea * 0.05 && rectArea < imageArea * 0.8) {
+        if (approx.size() >= 4 && approx.size() <= 15 && 
+            rectArea > imageArea * 0.1 && rectArea < imageArea * 0.8) {
             contoursByArea.emplace_back(rectArea, rect);
         }
     }
