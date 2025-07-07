@@ -37,7 +37,7 @@ cd ..
 
 ## Output Files
 
-When the `--debug` flag is used, the following files are generated. If `--output-prefix <prefix>` is also used, `<prefix>` will be prepended to the filenames.
+When the `--debug` flag is used, the following files are generated.
 
 - `original_image.jpg` - Input image
 - `canny_edges.jpg` - Edge detection visualization
