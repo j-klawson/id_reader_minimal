@@ -5,15 +5,21 @@
 #include <iostream>
 #include <fstream>
 #include <algorithm>
+#include "haarcascade_data.h"
 
 using namespace cv;
 
-static std::ofstream debugLog("debug.log");
-
-bool detectPortrait(const Mat &cardROI, const std::string &faceCascadePath) {
+bool detectPortrait(const Mat &cardROI, Mat& portraitROI, std::ostream& debugStream, bool debugMode) {
     CascadeClassifier face_cascade;
-    if (!face_cascade.load(faceCascadePath)) {
-        debugLog << "Error loading Haar Cascade face detector from: " << faceCascadePath << std::endl;
+    
+    // Load cascade from embedded data using FileStorage
+    FileStorage fs(std::string((char*)gHaarCascadeData, gHaarCascadeData_len), FileStorage::MEMORY | FileStorage::READ);
+    if (!fs.isOpened()) {
+        if (debugMode) debugStream << "Failed to open cascade from memory." << std::endl;
+        return false;
+    }
+    if (!face_cascade.read(fs.getFirstTopLevelNode())) {
+        if (debugMode) debugStream << "Failed to read cascade from FileStorage." << std::endl;
         return false;
     }
 
@@ -27,17 +33,18 @@ bool detectPortrait(const Mat &cardROI, const std::string &faceCascadePath) {
     for (const auto &face : faces) {
         rectangle(cardROI, face, Scalar(255, 0, 0), 2);
         if (face.x < cardROI.cols * 0.4) {
-            debugLog << "Face detected in portrait region." << std::endl;
+            if (debugMode) debugStream << "Face detected in portrait region." << std::endl;
+            portraitROI = cardROI(face);
             return true;
         }
     }
 
-    imwrite("portrait_detection_debug.jpg", cardROI);
+    if (debugMode) imwrite("portrait_detection_debug.jpg", cardROI);
 
     return false;
 }
 
-RotatedRect findCardContour(const Mat &image, const Mat &gray) {
+RotatedRect findCardContour(const Mat &image, const Mat &gray, std::ostream& debugStream, bool debugMode) {
     // Edge detection on the original image
     Mat edges;
     Canny(gray, edges, 50, 150, 3);
@@ -46,15 +53,15 @@ RotatedRect findCardContour(const Mat &image, const Mat &gray) {
     Mat kernel = getStructuringElement(MORPH_RECT, Size(5, 5));
     morphologyEx(edges, edges, MORPH_CLOSE, kernel);
 
-    imwrite("canny_edges.jpg", edges);
+    if (debugMode) imwrite("canny_edges.jpg", edges);
 
     std::vector<std::vector<Point>> contours;
     findContours(edges, contours, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
 
-    debugLog << "Total contours found: " << contours.size() << std::endl;
+    if (debugMode) debugStream << "Total contours found: " << contours.size() << std::endl;
 
     if (contours.empty()) {
-        debugLog << "No contours found." << std::endl;
+        if (debugMode) debugStream << "No contours found." << std::endl;
         return RotatedRect();
     }
 
@@ -72,7 +79,7 @@ RotatedRect findCardContour(const Mat &image, const Mat &gray) {
         RotatedRect rect = minAreaRect(approx);
         double rectArea = rect.size.width * rect.size.height;
 
-        debugLog << "Contour #" << i << ": area=" << rectArea
+        if (debugMode) debugStream << "Contour #" << i << ": area=" << rectArea
                  << ", vertices=" << approx.size() << std::endl;
 
         // Only consider contours with reasonable vertex count for rectangles and plausible area
@@ -87,13 +94,13 @@ RotatedRect findCardContour(const Mat &image, const Mat &gray) {
     std::sort(contoursByArea.begin(), contoursByArea.end(), 
               [](const auto &a, const auto &b) { return a.first > b.first; });
 
-    debugLog << "Found " << contoursByArea.size() << " rectangular contours" << std::endl;
+    if (debugMode) debugStream << "Found " << contoursByArea.size() << " rectangular contours" << std::endl;
     for (size_t i = 0; i < std::min(size_t(5), contoursByArea.size()); ++i) {
         double w = contoursByArea[i].second.size.width;
         double h = contoursByArea[i].second.size.height;
         if (w < h) std::swap(w, h);
         double aspectRatio = w / h;
-        debugLog << "Rank " << i << ": area=" << contoursByArea[i].first
+        if (debugMode) debugStream << "Rank " << i << ": area=" << contoursByArea[i].first
                  << ", aspectRatio=" << aspectRatio << std::endl;
     }
 
@@ -111,7 +118,7 @@ RotatedRect findCardContour(const Mat &image, const Mat &gray) {
         if (aspectRatio >= 1.25 && aspectRatio <= 1.90) {
             bestRect = contoursByArea[i].second;
             bestRectArea = contoursByArea[i].first;
-            debugLog << "Selected rank " << i << " contour with good aspect ratio" << std::endl;
+            if (debugMode) debugStream << "Selected rank " << i << " contour with good aspect ratio" << std::endl;
             break;
         }
     }
@@ -120,14 +127,16 @@ RotatedRect findCardContour(const Mat &image, const Mat &gray) {
     if (bestRectArea == 0 && !contoursByArea.empty()) {
         bestRect = contoursByArea[0].second;
         bestRectArea = contoursByArea[0].first;
-        debugLog << "Fallback: selected largest contour" << std::endl;
+        if (debugMode) debugStream << "Fallback: selected largest contour" << std::endl;
     }
 
-    imwrite("detected_rectangles.jpg", debugImage);
+    if (debugMode) imwrite("detected_rectangles.jpg", debugImage);
 
     if (bestRectArea == 0) {
-        debugLog << "No rectangle with correct aspect ratio and area found." << std::endl;
-        debugLog << "Image size: " << image.cols << " x " << image.rows << std::endl;
+        if (debugMode) {
+            debugStream << "No rectangle with correct aspect ratio and area found." << std::endl;
+            debugStream << "Image size: " << image.cols << " x " << image.rows << std::endl;
+        }
 
         std::vector<std::pair<double, RotatedRect>> areas;
         for (const auto &contour : contours) {
@@ -143,7 +152,7 @@ RotatedRect findCardContour(const Mat &image, const Mat &gray) {
             double h = areas[i].second.size.height;
             if (w < h) std::swap(w, h);
             double ratio = w / h;
-            debugLog << "Top contour " << i << ": area=" << areas[i].first
+            if (debugMode) debugStream << "Top contour " << i << ": area=" << areas[i].first
                      << ", size=(" << w << "x" << h << ")"
                      << ", aspectRatio=" << ratio << std::endl;
         }
@@ -154,7 +163,7 @@ RotatedRect findCardContour(const Mat &image, const Mat &gray) {
     double finalW = bestRect.size.width;
     double finalH = bestRect.size.height;
     if (finalW < finalH) std::swap(finalW, finalH);
-    debugLog << "Selected rect area: " << bestRectArea << " | Aspect Ratio: "
+    if (debugMode) debugStream << "Selected rect area: " << bestRectArea << " | Aspect Ratio: "
              << finalW / finalH << std::endl;
 
     return bestRect;

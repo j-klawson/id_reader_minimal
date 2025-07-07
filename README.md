@@ -13,21 +13,31 @@ A minimal C++ application that detects and extracts ID cards from images using O
 
 - OpenCV 4.x
 - C++17 compiler
-- pkg-config
+- `xxd` (usually part of `vim-common` or `vim-runtime` packages on Linux, or available by default on macOS)
 
 ## Build & Run
 
+The Haar Cascade XML file (`haarcascade_frontalface_default.xml`) is converted into a C++ array during the build process and embedded directly into the executable. This eliminates the need to distribute the XML file separately.
+
 ```bash
-make
-./detect_id_card <image_path> [face_cascade_path]
+mkdir -p build
+cd build
+cmake ..
+cmake --build .
+cd ..
+./bin/detect_id_card <image_path>
 ```
 
-Or use the test script:
+**Running Tests:**
 ```bash
-./runtest.sh
+cd build
+ctest
+cd ..
 ```
 
 ## Output Files
+
+When the `--debug` flag is used, the following files are generated. If `--output-prefix <prefix>` is also used, `<prefix>` will be prepended to the filenames.
 
 - `original_image.jpg` - Input image
 - `canny_edges.jpg` - Edge detection visualization
