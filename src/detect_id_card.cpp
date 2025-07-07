@@ -9,11 +9,17 @@
 
 using namespace cv;
 
-bool detectPortrait(const Mat &cardROI, Mat& portraitROI, std::ostream& debugStream, bool debugMode, const std::string& outputPrefix) {
+bool detectPortrait(const Mat &cardROI, Mat& portraitROI, std::ostream& debugStream, bool debugMode) {
     CascadeClassifier face_cascade;
-    // Load cascade from embedded data
-    if (!face_cascade.load(std::string((char*)gHaarCascadeData, gHaarCascadeData_len))) {
-        if (debugMode) debugStream << "Error loading Haar Cascade face detector from embedded data." << std::endl;
+    
+    // Load cascade from embedded data using FileStorage
+    FileStorage fs(std::string((char*)gHaarCascadeData, gHaarCascadeData_len), FileStorage::MEMORY | FileStorage::READ);
+    if (!fs.isOpened()) {
+        if (debugMode) debugStream << "Failed to open cascade from memory." << std::endl;
+        return false;
+    }
+    if (!face_cascade.read(fs.getFirstTopLevelNode())) {
+        if (debugMode) debugStream << "Failed to read cascade from FileStorage." << std::endl;
         return false;
     }
 
@@ -33,12 +39,12 @@ bool detectPortrait(const Mat &cardROI, Mat& portraitROI, std::ostream& debugStr
         }
     }
 
-    if (debugMode) imwrite(outputPrefix + "portrait_detection_debug.jpg", cardROI);
+    if (debugMode) imwrite("portrait_detection_debug.jpg", cardROI);
 
     return false;
 }
 
-RotatedRect findCardContour(const Mat &image, const Mat &gray, std::ostream& debugStream, bool debugMode, const std::string& outputPrefix) {
+RotatedRect findCardContour(const Mat &image, const Mat &gray, std::ostream& debugStream, bool debugMode) {
     // Edge detection on the original image
     Mat edges;
     Canny(gray, edges, 30, 90, 5);
@@ -47,7 +53,7 @@ RotatedRect findCardContour(const Mat &image, const Mat &gray, std::ostream& deb
     Mat kernel = getStructuringElement(MORPH_RECT, Size(5, 5));
     morphologyEx(edges, edges, MORPH_CLOSE, kernel);
 
-    if (debugMode) imwrite(outputPrefix + "canny_edges.jpg", edges);
+    if (debugMode) imwrite("canny_edges.jpg", edges);
 
     std::vector<std::vector<Point>> contours;
     findContours(edges, contours, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE);
@@ -124,7 +130,7 @@ RotatedRect findCardContour(const Mat &image, const Mat &gray, std::ostream& deb
         if (debugMode) debugStream << "Fallback: selected largest contour" << std::endl;
     }
 
-    if (debugMode) imwrite(outputPrefix + "detected_rectangles.jpg", debugImage);
+    if (debugMode) imwrite("detected_rectangles.jpg", debugImage);
 
     if (bestRectArea == 0) {
         if (debugMode) {

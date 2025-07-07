@@ -7,8 +7,8 @@
 
 #include <ostream>
 
-cv::RotatedRect findCardContour(const cv::Mat &image, const cv::Mat &gray, std::ostream& debugStream, bool debugMode, const std::string& outputPrefix);
-bool detectPortrait(const cv::Mat &cardROI, cv::Mat& portraitROI, std::ostream& debugStream, bool debugMode, const std::string& outputPrefix);
+cv::RotatedRect findCardContour(const cv::Mat &image, const cv::Mat &gray, std::ostream& debugStream, bool debugMode);
+bool detectPortrait(const cv::Mat &cardROI, cv::Mat& portraitROI, std::ostream& debugStream, bool debugMode);
 
 #endif // DETECT_ID_CARD_H
 
