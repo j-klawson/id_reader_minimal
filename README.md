@@ -2,39 +2,6 @@
 
 A minimal C++ application that detects and extracts ID cards from images using OpenCV.
 
-## File Structure:
-
-```
-/Users/keith/code/id_reader_minimal/
-├───.gitignore
-├───debug.log.working
-├───README.md
-├───runtest.sh
-├───CMakeLists.txt
-├───.claude/
-│   └───settings.local.json
-├───.git/...
-├───.vscode/
-├───src/
-│   ├───detect_id_card.cpp
-│   ├───detect_id_card.h
-│   ├───main.cpp
-│   └───assets/
-│       └───haarcascade_frontalface_default.xml
-├───build/
-└───tests/
-    ├───CMakeLists.txt
-    ├───test_main.cpp
-    ├───test_images/
-    │   ├───canada_passport.jpg
-    │   ├───dl-alberta-front1.jpg
-    │   ├───dl-alberta-front2.jpg
-    │   ├───dl-bc-front.jpg
-    │   ├───dl-ontario-back.jpg
-    │   └───dl-ontario-front.jpg
-    └───expected_outputs/
-```
-
 ## Features
 
 - Detects ID-1 standard cards (credit card size) on solid backgrounds
