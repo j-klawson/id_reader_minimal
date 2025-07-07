@@ -2,6 +2,39 @@
 
 A minimal C++ application that detects and extracts ID cards from images using OpenCV.
 
+## File Structure:
+
+```
+/Users/keith/code/id_reader_minimal/
+├───.gitignore
+├───debug.log.working
+├───README.md
+├───runtest.sh
+├───CMakeLists.txt
+├───.claude/
+│   └───settings.local.json
+├───.git/...
+├───.vscode/
+├───src/
+│   ├───detect_id_card.cpp
+│   ├───detect_id_card.h
+│   ├───main.cpp
+│   └───assets/
+│       └───haarcascade_frontalface_default.xml
+├───build/
+└───tests/
+    ├───CMakeLists.txt
+    ├───test_main.cpp
+    ├───test_images/
+    │   ├───canada_passport.jpg
+    │   ├───dl-alberta-front1.jpg
+    │   ├───dl-alberta-front2.jpg
+    │   ├───dl-bc-front.jpg
+    │   ├───dl-ontario-back.jpg
+    │   └───dl-ontario-front.jpg
+    └───expected_outputs/
+```
+
 ## Features
 
 - Detects ID-1 standard cards (credit card size) on solid backgrounds
@@ -13,9 +46,11 @@ A minimal C++ application that detects and extracts ID cards from images using O
 
 - OpenCV 4.x
 - C++17 compiler
-- pkg-config
+- `xxd` (usually part of `vim-common` or `vim-runtime` packages on Linux, or available by default on macOS)
 
 ## Build & Run
+
+The Haar Cascade XML file (`haarcascade_frontalface_default.xml`) is converted into a C++ array during the build process and embedded directly into the executable. This eliminates the need to distribute the XML file separately.
 
 ```bash
 mkdir -p build
@@ -23,12 +58,14 @@ cd build
 cmake ..
 cmake --build .
 cd ..
-./build/detect_id_card <image_path> [face_cascade_path]
+./bin/detect_id_card <image_path>
 ```
 
-Or use the test script:
+**Running Tests:**
 ```bash
-./runtest.sh
+cd build
+ctest
+cd ..
 ```
 
 ## Output Files
