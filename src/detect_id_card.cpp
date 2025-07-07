@@ -5,13 +5,15 @@
 #include <iostream>
 #include <fstream>
 #include <algorithm>
+#include "haarcascade_data.h"
 
 using namespace cv;
 
-bool detectPortrait(const Mat &cardROI, const std::string &faceCascadePath, Mat& portraitROI, std::ostream& debugStream, bool debugMode, const std::string& outputPrefix) {
+bool detectPortrait(const Mat &cardROI, Mat& portraitROI, std::ostream& debugStream, bool debugMode, const std::string& outputPrefix) {
     CascadeClassifier face_cascade;
-    if (!face_cascade.load(faceCascadePath)) {
-        if (debugMode) debugStream << "Error loading Haar Cascade face detector from: " << faceCascadePath << std::endl;
+    // Load cascade from embedded data
+    if (!face_cascade.load(std::string((char*)gHaarCascadeData, gHaarCascadeData_len))) {
+        if (debugMode) debugStream << "Error loading Haar Cascade face detector from embedded data." << std::endl;
         return false;
     }
 

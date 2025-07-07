@@ -16,15 +16,12 @@ void printUsage() {
     std::cout << "Options:" << std::endl;
     std::cout << "  --help                Display this help message and exit." << std::endl;
     std::cout << "  --debug               Enable debug output, including intermediate image files and debug.log." << std::endl;
-    std::cout << "  --face-cascade <path> Path to the Haar Cascade XML file for face detection." << std::endl;
-    std::cout << "                        (default: ./assets/haarcascade_frontalface_default.xml)" << std::endl;
     std::cout << "  --output-prefix <path>  Prefix for output debug images (e.g., 'test_')." << std::endl;
     std::cout << std::endl;
 }
 
 int main(int argc, char **argv) {
     std::string imagePath;
-    std::string faceCascadePath = "./assets/haarcascade_frontalface_default.xml";
     bool debugMode = false;
     std::string outputPrefix;
 
@@ -36,14 +33,6 @@ int main(int argc, char **argv) {
             return 0;
         } else if (arg == "--debug") {
             debugMode = true;
-        } else if (arg == "--face-cascade") {
-            if (i + 1 < argc) {
-                faceCascadePath = argv[++i];
-            } else {
-                std::cerr << "Error: --face-cascade requires a path." << std::endl;
-                printUsage();
-                return -1;
-            }
         } else if (arg == "--output-prefix") {
             if (i + 1 < argc) {
                 outputPrefix = argv[++i];
@@ -136,7 +125,7 @@ int main(int argc, char **argv) {
     }
 
     Mat croppedPortrait;
-    if (detectPortrait(warped, faceCascadePath, croppedPortrait, *debugStream, debugMode, outputPrefix)) {
+    if (detectPortrait(warped, croppedPortrait, *debugStream, debugMode, outputPrefix)) {
         imwrite(outputPrefix + "cropped_card.jpg", warped);
         imwrite(outputPrefix + "cropped_portrait.jpg", croppedPortrait);
         std::cout << "Card with portrait detected." << std::endl;
